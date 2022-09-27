@@ -14,49 +14,45 @@ namespace WindowsController
     /// </summary>
     public partial class App : Application
     {
-        private static System.Timers.Timer timer1;
         protected override void OnStartup(StartupEventArgs e)
         {
 
             base.OnStartup(e);
 
-            var menu = new System.Windows.Forms.ContextMenuStrip();
-            menu.Items.Add("終了", null, Exit_Click);
+            //var menu = new System.Windows.Forms.ContextMenuStrip();
+            //menu.Items.Add("終了", null, Exit_Click);
 
-            var notifyIcon = new System.Windows.Forms.NotifyIcon
-            {
-                Visible = true,
-                Icon = new System.Drawing.Icon(@"favicon.ico"),
-                Text = "Windows Controller",
-                ContextMenuStrip = menu
-            };
+            //var notifyIcon = new System.Windows.Forms.NotifyIcon
+            //{
+            //    Visible = true,
+            //    Icon = new System.Drawing.Icon(@"favicon.ico"),
+            //    Text = "Windows Controller",
+            //    ContextMenuStrip = menu
+            //};
 
-            notifyIcon.MouseClick += new System.Windows.Forms.MouseEventHandler(NotifyIcon_Click);
+            //notifyIcon.MouseClick += new System.Windows.Forms.MouseEventHandler(NotifyIcon_Click);
 
-            timer1 = new System.Timers.Timer(1000);
-            timer1.Start();
+            //int x = System.Windows.Forms.Cursor.Position.X;
+            ////Y座標を取得する
+            //int y = System.Windows.Forms.Cursor.Position.Y;
 
-            int x = System.Windows.Forms.Cursor.Position.X;
-            //Y座標を取得する
-            int y = System.Windows.Forms.Cursor.Position.Y;
-
-            //マウスポインタの位置を画面左上（座標 (0, 0)）にする
-            System.Windows.Forms.Cursor.Position = new System.Drawing.Point(0, 0);
+            ////マウスポインタの位置を画面左上（座標 (0, 0)）にする
+            //System.Windows.Forms.Cursor.Position = new System.Drawing.Point(0, 0);
         }
 
 
-        private void NotifyIcon_Click(object sender, System.Windows.Forms.MouseEventArgs e)
-        {
-            if (e.Button == System.Windows.Forms.MouseButtons.Left)
-            {
-                var wnd = new MainWindow();
-                wnd.Show();
-            }
-        }
+        //private void NotifyIcon_Click(object sender, System.Windows.Forms.MouseEventArgs e)
+        //{
+        //    if (e.Button == System.Windows.Forms.MouseButtons.Left)
+        //    {
+        //        var wnd = new MainWindow();
+        //        wnd.Show();
+        //    }
+        //}
 
-        private void Exit_Click(object sender, EventArgs e)
-        {
-            Shutdown();
-        }
+        //private void Exit_Click(object sender, EventArgs e)
+        //{
+        //    Shutdown();
+        //}
     }
 }
