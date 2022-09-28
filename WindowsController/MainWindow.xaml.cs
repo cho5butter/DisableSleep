@@ -27,7 +27,7 @@ namespace WindowsController
         private KeyboardHook _keybordHook;
         private System.Timers.Timer _timer;
         private ulong _elapsedTime;
-        private const int _moveInterval = 60 * 4;
+        private const int _moveInterval = 60;
         private System.Windows.Forms.ContextMenuStrip _contextMenu;
         private System.Windows.Forms.NotifyIcon _notifyIcon;
 
