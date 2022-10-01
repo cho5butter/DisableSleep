@@ -28,6 +28,7 @@ namespace WindowsController
         private System.Timers.Timer _timer;
         private ulong _elapsedTime;
         private const int _moveInterval = 60;
+        private const int _moveCount = 50;
         private System.Windows.Forms.ContextMenuStrip _contextMenu;
         private System.Windows.Forms.NotifyIcon _notifyIcon;
 
@@ -120,32 +121,42 @@ namespace WindowsController
         private void timerEvent(Object source, System.Timers.ElapsedEventArgs e)
         {
             //指定秒経てばここが実行
-            this._notifyIcon.Text = this._timer.Enabled ? "作動中" : "停止中";
-            this._elapsedTime += 1;
-            if (this._elapsedTime < _moveInterval) return;
-            this._elapsedTime = 0;
-            //AFK防止
-            this.preventionAFK();
+            try
+            {
+                this._notifyIcon.Text = this._timer.Enabled ? "作動中" : "停止中";
+                this._elapsedTime += 1;
+                if (this._elapsedTime < _moveInterval) return;
+                this._elapsedTime = 0;
+                //AFK防止
+                this.preventionAFK();
+            } catch(Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.ToString());
+                return;
+            }
         }
 
         private void preventionAFK()
         {
-            //Mouse動かす
-            int mouseX = System.Windows.Forms.Cursor.Position.X;
-            int mouseY = System.Windows.Forms.Cursor.Position.Y;
-
-            Random rand = new Random();
-            int moveX = rand.Next(minValue: -100, maxValue: 100);
-            int moveY = rand.Next(minValue: -100, maxValue: 100);
-
-            try
+            for (int i = 0; i < _moveCount; i++)
             {
-                System.Windows.Forms.Cursor.Position = new System.Drawing.Point(mouseX + moveX, mouseY + moveY);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message);
-                System.Diagnostics.Debug.WriteLine(ex.ToString());
+                //Mouse動かす
+                int mouseX = System.Windows.Forms.Cursor.Position.X;
+                int mouseY = System.Windows.Forms.Cursor.Position.Y;
+
+                Random rand = new Random();
+                int moveX = rand.Next(minValue: -1, maxValue: 1);
+                int moveY = rand.Next(minValue: -1, maxValue: 1);
+
+                try
+                {
+                    System.Windows.Forms.Cursor.Position = new System.Drawing.Point(mouseX + moveX, mouseY + moveY);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
+                    System.Diagnostics.Debug.WriteLine(ex.ToString());
+                }
             }
 
         }
@@ -210,14 +221,16 @@ namespace WindowsController
             //レジストリ登録
             try
             {
+                //Runキーを開く
                 Microsoft.Win32.RegistryKey regkey =
                     Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                        @"Software\Microsoft\Windows\CurrentVersion\Run", true
-                    );
+                    @"Software\Microsoft\Windows\CurrentVersion\Run", true);
                 //値の名前に製品名、値のデータに実行ファイルのパスを指定し、書き込む
-                regkey.SetValue(System.Windows.Application.ResourceAssembly.GetName().ToString(), System.Reflection.Assembly.GetExecutingAssembly().Location);
+                regkey.SetValue(System.Windows.Forms.Application.ProductName, System.Windows.Forms.Application.ExecutablePath);
                 //閉じる
                 regkey.Close();
+                System.Diagnostics.Debug.WriteLine(System.Windows.Forms.Application.ProductName);
+                System.Diagnostics.Debug.WriteLine(System.Windows.Forms.Application.ExecutablePath);
             }
             catch (Exception ex)
             {
@@ -234,7 +247,7 @@ namespace WindowsController
                 Microsoft.Win32.RegistryKey regkey =
                     Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
                     @"Software\Microsoft\Windows\CurrentVersion\Run", true);
-                regkey.DeleteValue(System.Windows.Application.ResourceAssembly.GetName().ToString(), false);
+                regkey.DeleteValue(System.Windows.Forms.Application.ProductName, false);
                 regkey.Close();
             }
             catch(Exception ex)
