@@ -27,8 +27,8 @@ namespace WindowsController
         private KeyboardHook _keybordHook;
         private System.Timers.Timer _timer;
         private ulong _elapsedTime;
-        private const int _moveInterval = 60;
-        private const int _moveCount = 50;
+        private int _moveInterval = 60;
+        private int _moveCount = 200;
         private System.Windows.Forms.ContextMenuStrip _contextMenu;
         private System.Windows.Forms.NotifyIcon _notifyIcon;
 
@@ -40,7 +40,7 @@ namespace WindowsController
             this.WindowState = WindowState.Minimized;
             this.Visibility = Visibility.Hidden;
 
-            this.hookSet();
+            //this.hookSet();
             this.timerSet();
             this.menuSet();
 
@@ -67,7 +67,7 @@ namespace WindowsController
 
             this._elapsedTime = 0;
 
-            this._timer.Start();
+            this._timer.Stop();
         }
 
         private void menuSet()
@@ -84,7 +84,7 @@ namespace WindowsController
             {
                 Visible = true,
                 Icon = new System.Drawing.Icon(@"favicon.ico"),
-                Text = "作動中",
+                Text = "停止中",
                 ContextMenuStrip = this._contextMenu
             };
         }
@@ -125,10 +125,14 @@ namespace WindowsController
             {
                 this._notifyIcon.Text = this._timer.Enabled ? "作動中" : "停止中";
                 this._elapsedTime += 1;
-                if (this._elapsedTime < _moveInterval) return;
+                if (this._elapsedTime < (ulong)this._moveInterval) return;
+                Random random = new Random();
+                int ranTime = random.Next(50, 100);
                 this._elapsedTime = 0;
                 //AFK防止
                 this.preventionAFK();
+                //インターバル変更
+                this._moveInterval =  ranTime;
             } catch(Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(ex.ToString());
@@ -138,7 +142,16 @@ namespace WindowsController
 
         private void preventionAFK()
         {
-            for (int i = 0; i < _moveCount; i++)
+
+            System.Diagnostics.Debug.WriteLine(
+                    "実行された；" + "待機時間" + this._moveInterval.ToString()
+                );
+
+            Random random = new Random();
+            int ranMove = random.Next(100, 500);
+            this._moveCount = ranMove;
+
+            for (int i = 0; i < this._moveCount; i++)
             {
                 //Mouse動かす
                 int mouseX = System.Windows.Forms.Cursor.Position.X;
@@ -158,6 +171,9 @@ namespace WindowsController
                     System.Diagnostics.Debug.WriteLine(ex.ToString());
                 }
             }
+
+            //キーボード送信
+            System.Windows.Forms.SendKeys.SendWait("^+m%");
 
         }
 
