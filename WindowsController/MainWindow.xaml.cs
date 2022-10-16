@@ -18,19 +18,19 @@ namespace WindowsController
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
-    /// https://lets-csharp.com/keyboard-hook/
-    /// https://www.ipentec.com/document/csharp-get-mouse-pointer-screen-position-using-global-hook
+    /// https://ameblo.jp/mojeld/entry-12731540496.html
     /// </summary>
     public partial class MainWindow : Window
     {
-        private IntPtr _mouseHook;
-        private KeyboardHook _keybordHook;
+        private InterceptKeyboard _interceptKeyboard;
+        private MouseHook _mouseHook;
         private System.Timers.Timer _timer;
         private ulong _elapsedTime;
         private int _moveInterval = 60;
         private int _moveCount = 200;
         private System.Windows.Forms.ContextMenuStrip _contextMenu;
         private System.Windows.Forms.NotifyIcon _notifyIcon;
+
 
         public MainWindow()
         {
@@ -40,7 +40,7 @@ namespace WindowsController
             this.WindowState = WindowState.Minimized;
             this.Visibility = Visibility.Hidden;
 
-            //this.hookSet();
+            this.hookSet();
             this.timerSet();
             this.menuSet();
 
@@ -48,13 +48,33 @@ namespace WindowsController
 
         private void hookSet()
         {
-            //マウスフックセット
-            this.SetHook();
+            this._interceptKeyboard = new InterceptKeyboard();
+            this._interceptKeyboard.KeyDownEvent += InterceptKeyboard_KeyDownEvent;
+            this._interceptKeyboard.KeyUpEvent += InterceptKeyboard_KeyUpEvent;
+            this._interceptKeyboard.Hook();
 
-            //キーボードフックセット
-            this._keybordHook = new KeyboardHook();
-            this._keybordHook.KeyDownEvent += KeyboardHook_KeyDownEvent;
-            this._keybordHook.Hook();
+            this._mouseHook = new MouseHook();
+            this._mouseHook.MouseMoveEvent += this.Hook_MouseMoveEvent;
+            this._mouseHook.Hook();
+
+        }
+
+        private void InterceptKeyboard_KeyUpEvent(object sender, InterceptKeyboard.OriginalKeyEventArg e)
+        {
+            System.Diagnostics.Debug.WriteLine("Keyup KeyCode {0}", e.KeyCode);
+            this._elapsedTime = 0;
+        }
+
+        private void InterceptKeyboard_KeyDownEvent(object sender, InterceptKeyboard.OriginalKeyEventArg e)
+        {
+            System.Diagnostics.Debug.WriteLine("Keydown KeyCode {0}", e.KeyCode);
+            this._elapsedTime = 0;
+        }
+
+        private void Hook_MouseMoveEvent(object sender, MouseEventArg e)
+        {
+            System.Diagnostics.Debug.WriteLine(String.Format("X={0}, Y={1}", e.Point.X, e.Point.Y));
+            this._elapsedTime = 0;
         }
 
         private void timerSet()
@@ -104,18 +124,6 @@ namespace WindowsController
             if (this._timer.Enabled) return;
             this._timer.Start();
             this._notifyIcon.Text = "作動中";
-        }
-
-        private void KeyboardHook_KeyDownEvent(object sender, KeyEventArg e)
-        {
-            // キーが押されたときにやりたいこと
-            this._elapsedTime = 0;
-        }
-
-        private void MouseMove(WindowsAPI.MSLLHOOKSTRUCT MouseHookStruct)
-        {
-            //マウスが動いたときにやりたいこと
-            this._elapsedTime = 0;
         }
 
         private void timerEvent(Object source, System.Timers.ElapsedEventArgs e)
@@ -173,7 +181,7 @@ namespace WindowsController
             }
 
             //キーボード送信
-            System.Windows.Forms.SendKeys.SendWait("^+m%");
+            System.Windows.Forms.SendKeys.SendWait("^+%");
 
         }
 
@@ -192,85 +200,88 @@ namespace WindowsController
             this.Close();
         }
 
-        private int SetHook()
-        {
-            IntPtr hmodule = WindowsAPI.GetModuleHandle(System.Diagnostics.Process.GetCurrentProcess().MainModule.ModuleName);
-
-            _mouseHook = WindowsAPI.SetWindowsHookEx((int)WindowsAPI.HookType.WH_MOUSE_LL, (WindowsAPI.HOOKPROC)MyHookProc, hmodule, IntPtr.Zero);
-            if (_mouseHook == null)
-            {
-                System.Diagnostics.Debug.WriteLine("Set Hook失敗");
-                MessageBox.Show("起動に失敗しました", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
-                this.Close();
-                return -1;
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("Set Hook成功");
-                return 0;
-            }
-        }
-
-        private IntPtr MyHookProc(int nCode, IntPtr wParam, IntPtr lParam)
-        {
-            if (0 == WindowsAPI.HC_ACTION)
-            {
-                WindowsAPI.MSLLHOOKSTRUCT MouseHookStruct = (WindowsAPI.MSLLHOOKSTRUCT)System.Runtime.InteropServices.Marshal.PtrToStructure(lParam, typeof(WindowsAPI.MSLLHOOKSTRUCT));
-                //MessageBox.Show(Convert.ToString(MouseHookStruct.pt.x));
-                this.MouseMove(MouseHookStruct);
-            }
-
-            return WindowsAPI.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
-
-        }
-
         protected override void OnClosing(CancelEventArgs e)
         {
             //終了時にフックを外す
             base.OnClosing(e);
-            this._keybordHook.UnHook();
-            WindowsAPI.UnhookWindowsHookEx(_mouseHook);
+            this._interceptKeyboard.UnHook();
+            this._mouseHook.UnHook();
         }
 
         private void enableAutoLunch(object sender, EventArgs e)
         {
-            //レジストリ登録
             try
             {
-                //Runキーを開く
-                Microsoft.Win32.RegistryKey regkey =
-                    Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                    @"Software\Microsoft\Windows\CurrentVersion\Run", true);
-                //値の名前に製品名、値のデータに実行ファイルのパスを指定し、書き込む
-                regkey.SetValue(System.Windows.Forms.Application.ProductName, System.Windows.Forms.Application.ExecutablePath);
-                //閉じる
-                regkey.Close();
-                System.Diagnostics.Debug.WriteLine(System.Windows.Forms.Application.ProductName);
-                System.Diagnostics.Debug.WriteLine(System.Windows.Forms.Application.ExecutablePath);
+                //スタートアップフォルダと実行ファイルのパス取得
+                string shortcutPath = Environment.GetFolderPath(System.Environment.SpecialFolder.Startup) + "\\WinSys.lnk";
+                string targetPath = System.Windows.Forms.Application.ExecutablePath;
+
+                System.Diagnostics.Debug.WriteLine(shortcutPath);
+                System.Diagnostics.Debug.WriteLine(targetPath);
+
+                //ショートカット作成
+                IWshRuntimeLibrary.WshShell shell = new IWshRuntimeLibrary.WshShell();
+                IWshRuntimeLibrary.IWshShortcut shortcut = (IWshRuntimeLibrary.IWshShortcut)shell.CreateShortcut(shortcutPath);
+
+                shortcut.TargetPath = targetPath;
+                shortcut.WorkingDirectory = System.Windows.Forms.Application.StartupPath;
+                shortcut.Description = "テストのアプリケーション";
+                shortcut.Save();
+
+                //後処理
+                System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shortcut);
+                System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shell);
             }
             catch (Exception ex)
             {
-                //MessageBox.Show(ex.Message);
                 System.Diagnostics.Debug.WriteLine(ex.Message);
             }
+
+            ////レジストリ登録
+            //try
+            //{
+            //    //Runキーを開く
+            //    Microsoft.Win32.RegistryKey regkey =
+            //        Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+            //        @"Software\Microsoft\Windows\CurrentVersion\Run", true);
+            //    //値の名前に製品名、値のデータに実行ファイルのパスを指定し、書き込む
+            //    regkey.SetValue(System.Windows.Forms.Application.ProductName, System.Windows.Forms.Application.ExecutablePath);
+            //    //閉じる
+            //    regkey.Close();
+            //    System.Diagnostics.Debug.WriteLine(System.Windows.Forms.Application.ProductName);
+            //    System.Diagnostics.Debug.WriteLine(System.Windows.Forms.Application.ExecutablePath);
+            //}
+            //catch (Exception ex)
+            //{
+            //    //MessageBox.Show(ex.Message);
+            //    System.Diagnostics.Debug.WriteLine(ex.Message);
+            //}
         }
 
         private void disableAutoLunch(object sender, EventArgs e)
         {
-            //レジストリ登録削除
             try
             {
-                Microsoft.Win32.RegistryKey regkey =
-                    Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                    @"Software\Microsoft\Windows\CurrentVersion\Run", true);
-                regkey.DeleteValue(System.Windows.Forms.Application.ProductName, false);
-                regkey.Close();
-            }
-            catch(Exception ex)
+                string shortcutPath = Environment.GetFolderPath(System.Environment.SpecialFolder.Startup) + "\\WinSys.lnk";
+                System.IO.File.Delete(shortcutPath);
+            } catch (Exception ex)
             {
-                //MessageBox.Show(ex.Message);
                 System.Diagnostics.Debug.WriteLine(ex.Message);
             }
+            ////レジストリ登録削除
+            //try
+            //{
+            //    Microsoft.Win32.RegistryKey regkey =
+            //        Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+            //        @"Software\Microsoft\Windows\CurrentVersion\Run", true);
+            //    regkey.DeleteValue(System.Windows.Forms.Application.ProductName, false);
+            //    regkey.Close();
+            //}
+            //catch(Exception ex)
+            //{
+            //    //MessageBox.Show(ex.Message);
+            //    System.Diagnostics.Debug.WriteLine(ex.Message);
+            //}
         }
 
     }
